@@ -1,0 +1,14 @@
+# Runtime data
+clipboard_history.json
+clipboard_data.txt
+clipboard_settings.ini
+clipboard_settings.json
+clipboard_images/
+
+# Helper scripts
+_check.ps1
+_run.ps1
+_error.txt
+
+# Compiled
+*.exe
