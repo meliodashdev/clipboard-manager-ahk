@@ -321,7 +321,7 @@ function Get-ImageFingerprint([System.Drawing.Image]$img) {
 }
 
 function Copy-ClipEntry {
-    param($e)
+    param($e, $panel)
     $global:SkipClipCheck = $true
     if ($e.Type -eq "image" -and $e.Image -and (Test-Path $e.Image)) {
         try {
@@ -342,7 +342,39 @@ function Copy-ClipEntry {
         $this.Dispose()
     })
     $resetTimer.Start()
-    if ($script:CloseOnCopy) { $script:Form.Hide(); $script:IsVisible = $false }
+    if ($script:CloseOnCopy) {
+        $script:Form.Hide(); $script:IsVisible = $false
+    } elseif ($null -ne $panel) {
+        # Green flash on the copied card
+        $gColor = [System.Drawing.Color]::FromArgb(0, 220, 110)
+        $origBg = $panel.BackColor
+        $bdr = 2
+        $pw = $panel.Width; $ph = $panel.Height
+        $bt = New-Object System.Windows.Forms.Panel; $bt.BackColor = $gColor; $bt.SetBounds(0, 0, $pw, $bdr)
+        $bb = New-Object System.Windows.Forms.Panel; $bb.BackColor = $gColor; $bb.SetBounds(0, ($ph - $bdr), $pw, $bdr)
+        $bl = New-Object System.Windows.Forms.Panel; $bl.BackColor = $gColor; $bl.SetBounds(0, 0, $bdr, $ph)
+        $br = New-Object System.Windows.Forms.Panel; $br.BackColor = $gColor; $br.SetBounds(($pw - $bdr), 0, $bdr, $ph)
+        $cl = New-Object System.Windows.Forms.Label
+        $cl.Text = "Copied!"
+        $cl.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+        $cl.ForeColor = [System.Drawing.Color]::White
+        $cl.BackColor = $gColor
+        $cl.TextAlign = "MiddleCenter"
+        $cl.Size = New-Object System.Drawing.Size(70, 20)
+        $cl.Location = New-Object System.Drawing.Point((($pw - 70) / 2), 4)
+        $parts = @($bt, $bb, $bl, $br, $cl)
+        foreach ($p in $parts) { $panel.Controls.Add($p); $p.BringToFront() }
+        $flashTimer = New-Object System.Windows.Forms.Timer
+        $flashTimer.Interval = 400
+        $flashTimer.Add_Tick({
+            foreach ($p in $parts) {
+                $panel.Controls.Remove($p)
+                try { $p.Dispose() } catch { }
+            }
+            $this.Stop(); $this.Dispose()
+        }.GetNewClosure())
+        $flashTimer.Start()
+    }
 }
 
 function Apply-TypeFilter {
@@ -570,8 +602,9 @@ function Refresh-List {
 
         # Double-click to copy
         $capturedCopyEntry = $entry
+        $capturedPanel = $ep
         $copyAction = {
-            Copy-ClipEntry $capturedCopyEntry
+            Copy-ClipEntry $capturedCopyEntry $capturedPanel
         }.GetNewClosure()
         $ep.Add_DoubleClick($copyAction)
         foreach ($child in $ep.Controls) { $child.Add_DoubleClick($copyAction) }
